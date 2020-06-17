@@ -1,0 +1,4 @@
+name: 'Randomize'
+description: 'Randomizes block drops and their quantities.'
+version: '1.0.0'
+main: 'com.trimorph.randomize.Main'

@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Randomize:jar">
+    <output-path>$PROJECT_DIR$/../BluestoneNetwork/plugins</output-path>
+    <root id="archive" name="Randomize.jar">
+      <element id="module-output" name="Randomize" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../BluestoneNetwork/spigot.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
