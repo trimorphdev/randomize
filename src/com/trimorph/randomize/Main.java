@@ -16,20 +16,81 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
+import javax.swing.plaf.multi.MultiSeparatorUI;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.*;
 import java.util.stream.IntStream;
 
-public class Main extends JavaPlugin implements Listener {
+class dropRandomItem implements Runnable {
+    private int Max;
+    private int Seed;
+    private World Wld;
+    private Location Loc;
+    private Plugin plugin;
+    public dropRandomItem(int max, int s, World wld, Location loc, Plugin plug) {
+        Max = max;
+        Seed = s;
+        Wld = wld;
+        Loc = loc;
+        plugin = plug;
+    }
+    public void run() {
+        // Get a list of all materials.
+        final List<Material> values = Collections.unmodifiableList(Arrays.asList(Material.values()));
+        ItemStack dropsItem = null;
+        // Get an ItemStack with a random material from `values` and then drop it at the provided location. (`loc`)
+        try {
+            dropsItem = new ItemStack(values.get(getRandom(values.size(),Seed)), getRandom(Max,Seed)+1); // The item it drops.
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        ItemStack finalDropsItem = dropsItem;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Wld.dropItemNaturally(Loc, finalDropsItem);
+        });
+
+    }
+    private int getRandom(int max, int s) throws IOException {
+        int ret = 0;
+        if(Main.useConfig) {
+            System.out.println("getrandom");
+            String temp = "https://www.random.org/integers/?num=1&min=0&max="+max+"&col=1&base=10&format=plain&rnd=new";
+            ret= request(temp);
+        }
+        else {
+            System.out.println("notrandom");
+
+            Random random = new Random(s);
+            ret = random.nextInt(max);
+        }
+        return ret;
+    }
+    private static int request(String URL) throws IOException {
+        java.net.URL url = new URL(URL);
+        URLConnection urlConn = url.openConnection();
+        urlConn.addRequestProperty("User-Agent", "Mozilla");
+
+        InputStream inStream = urlConn.getInputStream();
+        int recieved = new Scanner(new InputStreamReader(inStream)).nextInt();
+        inStream.close();
+        return (recieved);
+    }
+
+}
+    public class Main extends JavaPlugin implements Listener {
     private int startTime;
     private Configuration conf;
     int maxDrops;
     int seed;
-
+    public static boolean useConfig;
     public void onEnable() {
         // Register events.
         getServer().getPluginManager().registerEvents(this, this);
@@ -43,22 +104,12 @@ public class Main extends JavaPlugin implements Listener {
         // Set the config data to a variable we can use later.
         maxDrops = conf.getInt("maxDrops");
         seed = conf.getInt("seed");
-    }
+        useConfig = conf.getBoolean("useRandomOrg");
 
-    public void dropRandomItem(int s, World wld, Location loc) {
-        // Create a seeded randomizer.
-        Random randomizer = new Random(s);
-
-        // Get a list of all materials.
-        final List<Material> values = Collections.unmodifiableList(Arrays.asList(Material.values()));
-
-        // Get an ItemStack with a random material from `values` and then drop it at the provided location. (`loc`)
-        ItemStack dropsItem = new ItemStack(values.get(randomizer.nextInt(values.size())), new Random().nextInt(maxDrops) + 1); // The item it drops.
-        wld.dropItemNaturally(loc, dropsItem);
     }
 
     @EventHandler
-    public void onBlockBreak(BlockBreakEvent event) {
+    public void onBlockBreak(BlockBreakEvent event) throws IOException {
         // Cancel the event so the block doesn't drop anything.
         event.setCancelled(true);
 
@@ -69,7 +120,8 @@ public class Main extends JavaPlugin implements Listener {
         blk.setType(Material.AIR);
 
         // Drop the item at the block's (previous) position.
-        dropRandomItem(blkType + seed + blk.getState().getType().getId(), blk.getWorld(), blk.getLocation());
+        Runnable r = new dropRandomItem(maxDrops,blkType + seed + blk.getState().getType().getId(), blk.getWorld(), blk.getLocation(),this);
+        new Thread(r).start();
     }
 
     @EventHandler
@@ -95,7 +147,7 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onVehicleDestroy(VehicleDestroyEvent event) {
+    public void onVehicleDestroy(VehicleDestroyEvent event) throws IOException {
         // Cancel the event, we'll remove the vehicle later.
         event.setCancelled(true);
 
@@ -103,7 +155,9 @@ public class Main extends JavaPlugin implements Listener {
         Vehicle v = event.getVehicle();
 
         // Drop the items where the vehicle is and then delete the vehicle.
-        dropRandomItem(v.getType().getTypeId() + seed, v.getWorld(), v.getLocation());
+        Runnable r = new dropRandomItem(maxDrops,v.getType().getTypeId() + seed, v.getWorld(), v.getLocation(),this);
+        new Thread(r).start();
+
         v.remove();
     }
 }

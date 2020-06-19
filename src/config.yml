@@ -1,2 +1,3 @@
 seed: 100
 maxDrops: 10000
+useRandomOrg: true
